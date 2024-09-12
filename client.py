@@ -25,10 +25,6 @@ def send_request(client_id):
         client_socket.connect(cluster_node)
         print(f"Tentativa de se conectar ao nó: {cluster_node}\n")
         
-        # Gera um timestamp único baseado no tempo atual (em milissegundos)
-        timestamp = int(time.time() * 1000)
-        print(f"Timestamp gerado foi de {timestamp}\n")
-        
         # Monta a requisição no formato "ID do cliente, timestamp"
         request = f"{client_id},{timestamp}"
         print(f"A requisição sendo enviado para o nó é ClientId = {client_id} e Timestamp = {timestamp}\n")
@@ -56,6 +52,9 @@ if __name__ == "__main__":
     
     # O cliente faz entre 10 e 50 requisições ao Cluster Sync
     for _ in range(random.randint(10, 50)):
+        # Gera um timestamp único baseado no tempo atual (em milissegundos)
+        timestamp = int(time.time() * 1000)
+        print(f"Timestamp gerado foi de {timestamp}\n")
         send_request(client_id)  # Envia uma requisição para o cluster
         
         # O cliente espera de 1 a 5 segundos antes de enviar a próxima requisição
