@@ -39,8 +39,10 @@ def send_request(client_id):
         response = client_socket.recv(1024).decode()
         print(f"Cliente {client_id} recebeu resposta: {response}")  # Exibe a resposta
     
-   # except Exception as e:
-        
+    except ConnectionRefusedError as e:
+        print(f"Conexão recusada com o nó {cluster_node}")
+        client_socket.close()
+        send_request(client_id)
     finally:
         # Fecha o socket para encerrar a conexão
         client_socket.close()
