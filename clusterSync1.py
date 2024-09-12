@@ -23,28 +23,43 @@ processed_requests = set()
 
 # Função para enviar pedidos para outros nós do Cluster Sync
 def propagate_to_cluster(request):
+    """
+    Propaga a requisição atual para os outros nós do Cluster Sync.
+    Essa função se conecta aos outros nós listados e envia o pedido
+    em formato JSON. Cada nó envia uma confirmação (ACK) após receber o pedido.
+    """
     for node in cluster_nodes:
         node_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             node_socket.connect(node)
-            node_socket.sendall(json.dumps(request).encode())
-            # Recebe confirmação da propagação
+            node_socket.sendall(json.dumps(request).encode())  # Serializa e envia o pedido
+            # Recebe confirmação da propagação (ACK)
             ack = node_socket.recv(1024).decode()
             print(f"Confirmação de {node}: {ack}")
         except Exception as e:
-            print(f"Falha ao conectar com {node}: {e}")
+            print(f"Falha ao conectar com {node}: {e}")  # Em caso de falha, exibe o erro
         finally:
             node_socket.close()
 
 # Função que simula o processamento na seção crítica
 def process_critical_section(request):
+    """
+    Simula o tempo de processamento na seção crítica.
+    Aqui, o processamento real seria feito, mas para simulação,
+    usamos um tempo de espera aleatório para simular o acesso ao recurso.
+    """
     time.sleep(random.uniform(0.2, 1))  # Simulação do tempo na seção crítica
     print(f"Processando seção crítica para: {request}")
 
 # Função para processar requisições dos clientes
 def handle_client_request(client_socket, address, local_node_id):
+    """
+    Lida com requisições de clientes. Recebe o pedido, verifica se já foi processado,
+    adiciona à fila e propaga para os outros nós. Se o pedido já foi processado,
+    ele é ignorado. Caso contrário, ele é processado.
+    """
     global request_queue, processed_requests
-    data = client_socket.recv(1024).decode()
+    data = client_socket.recv(1024).decode()  # Recebe os dados da requisição
     
     # Verifica se é um JSON (requisição propagada) ou um pedido de cliente
     if data.startswith('{'):
@@ -72,8 +87,8 @@ def handle_client_request(client_socket, address, local_node_id):
             return  # Ignora requisições duplicadas
 
         # Adiciona à fila de requisições local
-        request_queue.append((client_id, timestamp))
-        request_queue.sort(key=lambda x: x[1])  # Ordena por timestamp
+        request_queue.append((client_id, timestamp))  # Adiciona o pedido à fila
+        request_queue.sort(key=lambda x: x[1])  # Ordena por timestamp (ordem de chegada)
         processed_requests.add(request_id)  # Marca a requisição como processada
 
     # Propagar o pedido para os outros nós do Cluster Sync (somente se for requisição direta de cliente)
@@ -83,12 +98,12 @@ def handle_client_request(client_socket, address, local_node_id):
             "timestamp": timestamp,
             "node_id": local_node_id
         }
-        propagate_to_cluster(request)
+        propagate_to_cluster(request)  # Propaga o pedido para os outros nós
 
     # Simulação: Entrar na seção crítica para o menor timestamp
     with lock:
         if request_queue and request_queue[0][0] == client_id:  # Verifica se o cliente está na vez
-            process_critical_section(data)
+            process_critical_section(data)  # Processa o pedido na seção crítica
             # Remove o pedido processado da fila
             request_queue.pop(0)
 
@@ -100,8 +115,12 @@ def handle_client_request(client_socket, address, local_node_id):
 
 # Função para tratar requisições propagadas de outros nós
 def handle_propagated_request(request_data):
+    """
+    Lida com requisições propagadas de outros nós do cluster. Recebe os pedidos,
+    verifica se já foram processados, e, se não, adiciona-os à fila e processa-os.
+    """
     global request_queue, processed_requests
-    request = json.loads(request_data)
+    request = json.loads(request_data)  # Decodifica os dados recebidos
 
     # Identificador único da requisição propagada
     request_id = f"{request['client_id']}_{request['timestamp']}"
@@ -119,14 +138,18 @@ def handle_propagated_request(request_data):
 
 # Servidor Cluster Sync (que também recebe pedidos dos outros nós)
 def cluster_sync_server(host, port, local_node_id):
+    """
+    Servidor principal que recebe requisições dos clientes. Ao receber um pedido,
+    ele inicia uma thread separada para processá-lo e propagar para os outros nós.
+    """
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((host, port))
-    server_socket.listen(5)
+    server_socket.bind((host, port))  # Liga o servidor ao IP e porta
+    server_socket.listen(5)  # Define um limite de 5 conexões simultâneas
 
     print(f"Nó do Cluster Sync rodando em {host}:{port}")
 
     while True:
-        client_socket, addr = server_socket.accept()
+        client_socket, addr = server_socket.accept()  # Aceita a conexão do cliente
         print(f"Conexão recebida de {addr}")
 
         # Criar uma thread para processar pedidos de clientes
@@ -135,19 +158,23 @@ def cluster_sync_server(host, port, local_node_id):
 
 # Servidor para lidar com requisições de outros nós do Cluster Sync
 def node_listener(host, port):
+    """
+    Ouvidor que escuta requisições propagadas dos outros nós do cluster.
+    Quando recebe uma requisição, envia um ACK e processa a requisição.
+    """
     listener_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    listener_socket.bind((host, port))
-    listener_socket.listen(5)
+    listener_socket.bind((host, port))  # Liga o ouvidor ao IP e porta
+    listener_socket.listen(5)  # Define um limite de 5 conexões simultâneas
 
     print(f"Ouvidor de requisições de nós rodando em {host}:{port}")
 
     while True:
-        node_socket, addr = listener_socket.accept()
-        request_data = node_socket.recv(1024).decode()
+        node_socket, addr = listener_socket.accept()  # Aceita a conexão de outro nó
+        request_data = node_socket.recv(1024).decode()  # Recebe os dados do pedido
 
         if request_data:  # Somente processa se houver dados
             node_socket.sendall(b"ACK")  # Envia confirmação de recebimento
-            handle_propagated_request(request_data)
+            handle_propagated_request(request_data)  # Processa o pedido
 
         node_socket.close()
 

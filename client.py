@@ -6,9 +6,7 @@ import random  # Biblioteca para gerar números aleatórios
 cluster_nodes = [
     ("127.0.0.1", 5001),  # Nó 1 (localhost com porta 5001)
     ("127.0.0.1", 5002),  # Nó 2 (localhost com porta 5002)
-    ("127.0.0.1", 5003),  # Nó 2 (localhost com porta 5002)
-    ("127.0.0.1", 5004),  # Nó 2 (localhost com porta 5002)
-    ("127.0.0.1", 5005),  # Nó 2 (localhost com porta 5002)
+
 ]
 
 # Função que simula o envio de uma requisição de um cliente para um nó do cluster
@@ -40,6 +38,9 @@ def send_request(client_id):
         # Recebe a resposta do nó após o processamento
         response = client_socket.recv(1024).decode()
         print(f"Cliente {client_id} recebeu resposta: {response}")  # Exibe a resposta
+    
+   # except Exception as e:
+        
     finally:
         # Fecha o socket para encerrar a conexão
         client_socket.close()
