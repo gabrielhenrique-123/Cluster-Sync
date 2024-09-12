@@ -12,7 +12,7 @@ lock = threading.Lock()
 # Lista de nós do cluster, que contém os IPs e portas dos outros nós no sistema
 cluster_nodes = [
     ("cluster_node_1", 5001),  # Nó 1 (nome do serviço com porta 5001)
-    ("cluster_node_3", 5002),  # Nó 2 (nome do serviço com porta 5002)
+    ("cluster_node_2", 5002),  # Nó 2 (nome do serviço com porta 5002)
     ("cluster_node_4", 5004),  # Nó 4 (nome do serviço com porta 5004)
     ("cluster_node_5", 5005),  # Nó 5 (nome do serviço com porta 5005)
     # Este código será executado no Nó 3 (porta 5003)
