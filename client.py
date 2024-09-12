@@ -12,9 +12,9 @@ cluster_nodes = [
 ]
 
 # Função que simula o envio de uma requisição de um cliente para um nó do cluster
-def send_request(client_id, timestamp):
+def send_request(client_id, nodes, timestamp):
     # Escolhe um nó aleatoriamente da lista para enviar a requisição
-    cluster_node = random.choice(cluster_nodes)
+    cluster_node = random.choice(nodes)
     
     print(f"Nó escolhido foi: {cluster_node}")
 
@@ -37,7 +37,8 @@ def send_request(client_id, timestamp):
     except ConnectionRefusedError as e:
         print(f"Conexão recusada com o nó {cluster_node}\n")
         client_socket.close()
-        send_request(client_id, timestamp)
+        nodes.remove(cluster_node)
+        send_request(client_id, nodes, timestamp)
     finally:
         # Fecha o socket para encerrar a conexão
         client_socket.close()
@@ -52,7 +53,7 @@ if __name__ == "__main__":
         # Gera um timestamp único baseado no tempo atual (em milissegundos)
         timestamp = int(time.time() * 1000)
         print(f"Timestamp gerado foi de {timestamp}\n")
-        send_request(client_id, timestamp)  # Envia uma requisição para o cluster
+        send_request(client_id, cluster_nodes, timestamp)  # Envia uma requisição para o cluster
         
         # O cliente espera de 1 a 5 segundos antes de enviar a próxima requisição
         time.sleep(random.uniform(1, 5))
