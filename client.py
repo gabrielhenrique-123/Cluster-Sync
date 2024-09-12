@@ -12,35 +12,32 @@ cluster_nodes = [
 ]
 
 # Função que simula o envio de uma requisição de um cliente para um nó do cluster
-def send_request(client_id):
+def send_request(client_id, timestamp):
     # Escolhe um nó aleatoriamente da lista para enviar a requisição
     cluster_node = random.choice(cluster_nodes)
     
-    print(f"Nó escolhido foi: {cluster_node}\n")
+    print(f"Nó escolhido foi: {cluster_node}")
 
     # Cria um socket para se conectar ao nó escolhido
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         # Tenta conectar ao nó escolhido
-        client_socket.connect(cluster_node)
-        print(f"Tentativa de se conectar ao nó: {cluster_node}\n")
-        
+        client_socket.connect(cluster_node)        
         # Monta a requisição no formato "ID do cliente, timestamp"
         request = f"{client_id},{timestamp}"
         print(f"A requisição sendo enviado para o nó é ClientId = {client_id} e Timestamp = {timestamp}\n")
         
         # Envia a requisição para o nó do Cluster Sync
         client_socket.sendall(request.encode())
-        print(f"A requisição foi enviado com sucesso codificada\n")
 
         # Recebe a resposta do nó após o processamento
         response = client_socket.recv(1024).decode()
         print(f"Cliente {client_id} recebeu resposta: {response}")  # Exibe a resposta
     
     except ConnectionRefusedError as e:
-        print(f"Conexão recusada com o nó {cluster_node}")
+        print(f"Conexão recusada com o nó {cluster_node}\n")
         client_socket.close()
-        send_request(client_id)
+        send_request(client_id, timestamp)
     finally:
         # Fecha o socket para encerrar a conexão
         client_socket.close()
@@ -55,7 +52,7 @@ if __name__ == "__main__":
         # Gera um timestamp único baseado no tempo atual (em milissegundos)
         timestamp = int(time.time() * 1000)
         print(f"Timestamp gerado foi de {timestamp}\n")
-        send_request(client_id)  # Envia uma requisição para o cluster
+        send_request(client_id, timestamp)  # Envia uma requisição para o cluster
         
         # O cliente espera de 1 a 5 segundos antes de enviar a próxima requisição
         time.sleep(random.uniform(1, 5))
