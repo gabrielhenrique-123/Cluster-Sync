@@ -6,7 +6,9 @@ import random  # Biblioteca para gerar números aleatórios
 cluster_nodes = [
     ("127.0.0.1", 5001),  # Nó 1 (localhost com porta 5001)
     ("127.0.0.1", 5002),  # Nó 2 (localhost com porta 5002)
-
+    ("127.0.0.1", 5003),  # Nó 3 (localhost com porta 5003)
+    ("127.0.0.1", 5004),  # Nó 4 (localhost com porta 5004)
+    ("127.0.0.1", 5005),  # Nó 5 (localhost com porta 5005)
 ]
 
 # Função que simula o envio de uma requisição de um cliente para um nó do cluster
