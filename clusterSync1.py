@@ -89,6 +89,7 @@ def handle_client_request(client_socket, address, local_node_id):
         # Adiciona à fila de requisições local
         request_queue.append((client_id, timestamp))  # Adiciona o pedido à fila
         request_queue.sort(key=lambda x: x[1])  # Ordena por timestamp (ordem de chegada)
+        print(f"\nFila de Requisições: {request_queue}\n")
         processed_requests.add(request_id)  # Marca a requisição como processada
 
     # Propagar o pedido para os outros nós do Cluster Sync (somente se for requisição direta de cliente)
