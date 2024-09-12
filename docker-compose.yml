@@ -1,0 +1,87 @@
+version: '3'
+
+services:
+  cluster_node_1:
+    build:
+      context: ./clusterNode1  # Pasta com o Dockerfile e código do clusterSync1
+    container_name: cluster_node_1
+    ports:
+      - "5001:5001"
+    networks:
+      - cluster-network
+
+  cluster_node_2:
+    build:
+      context: ./clusterNode2  # Pasta com o Dockerfile e código do clusterSync2
+    container_name: cluster_node_2
+    ports:
+      - "5002:5002"
+    networks:
+      - cluster-network
+
+  cluster_node_3:
+    build:
+      context: ./clusterNode3  # Pasta com o Dockerfile e código do clusterSync3
+    container_name: cluster_node_3
+    ports:
+      - "5003:5003"
+    networks:
+      - cluster-network
+
+  cluster_node_4:
+    build:
+      context: ./clusterNode4  # Pasta com o Dockerfile e código do clusterSync4
+    container_name: cluster_node_4
+    ports:
+      - "5004:5004"
+    networks:
+      - cluster-network
+
+  cluster_node_5:
+    build:
+      context: ./clusterNode5  # Pasta com o Dockerfile e código do clusterSync5
+    container_name: cluster_node_5
+    ports:
+      - "5005:5005"
+    networks:
+      - cluster-network
+
+  client_1:
+    build:
+      context: ./client  # Pasta com o Dockerfile e código do cliente
+    container_name: client_1
+    networks:
+      - cluster-network
+
+  client_2:
+    build:
+      context: ./client
+    container_name: client_2
+    networks:
+      - cluster-network
+
+  client_3:
+    build:
+      context: ./client
+    container_name: client_3
+    networks:
+      - cluster-network
+
+  client_4:
+    build:
+      context: ./client
+    container_name: client_4
+    networks:
+      - cluster-network
+
+  client_5:
+    build:
+      context: ./client
+    container_name: client_5
+    networks:
+      - cluster-network
+
+networks:
+  cluster-network:
+    driver: bridge
+
