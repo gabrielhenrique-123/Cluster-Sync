@@ -9,6 +9,8 @@ request_queue = []
 # Lock para garantir que apenas uma thread por vez modifique a fila de requisições
 lock = threading.Lock()
 
+cluster_nodes_ack = []
+
 # Lista de nós do cluster, que contém os IPs e portas dos outros nós no sistema
 cluster_nodes = [
     ("cluster_node_1", 5001),  # Nó 1 (nome do serviço com porta 5002)
@@ -46,10 +48,9 @@ def propagate_to_cluster(request):
             try:
                 node_socket.settimeout(2)  # Timeout de 2 segundos
                 node_socket.connect(node)
-                node_socket.sendall(json.dumps(request).encode())  # Serializa e envia o pedido
-                # Recebe confirmação da propagação (ACK)
-                ack = node_socket.recv(1024).decode()
-                print(f"Confirmação de {node}: {ack}")
+                node_socket.send(json.dumps(request).encode())  # Serializa e envia o pedido
+                print(f"Confirmação de {node}")
+                cluster_nodes_ack.append(node)
                 break  # Conexão bem-sucedida, sai do loop de tentativas
             except socket.timeout:
                 print(f"Timeout ao tentar conectar com {node}. Tentativa {attempt+1}/{retries}")
@@ -60,6 +61,7 @@ def propagate_to_cluster(request):
             attempt += 1
         else:
             print(f"Falha ao conectar com {node} após {retries} tentativas")
+    print(cluster_nodes_ack)
 
 # Função que simula o processamento na seção crítica
 def process_critical_section(request):

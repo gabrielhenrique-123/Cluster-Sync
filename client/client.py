@@ -33,7 +33,7 @@ def send_request(client_id, nodes, timestamp, max_retries=3):
             print(f"A requisição sendo enviada para o nó é ClientId = {client_id} e Timestamp = {timestamp}\n")
             
             # Envia a requisição para o nó do Cluster Sync
-            client_socket.sendall(request.encode())
+            client_socket.send(request.encode())
 
             # Recebe a resposta do nó após o processamento
             response = client_socket.recv(1024).decode()
