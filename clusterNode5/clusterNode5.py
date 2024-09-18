@@ -1,226 +1,216 @@
-import socket  # Biblioteca para comunicação de rede usando sockets
-import threading  # Biblioteca para executar múltiplas operações em paralelo (threads)
-import time  # Biblioteca para trabalhar com tempo (ex: delay)
-import random  # Biblioteca para gerar valores aleatórios (ex: simulação de tempo)
-import json  # Biblioteca para trabalhar com JSON (serialização de dados)
+import socket
+import threading
+import time
+import random
+import json
 
-# Fila de requisições de cada nó do Cluster Sync, onde ficam os pedidos pendentes
+# Fila de requisições do Cluster Sync
 request_queue = []
-# Lock para garantir que apenas uma thread por vez modifique a fila de requisições
 lock = threading.Lock()
 
-cluster_nodes_ack = []
-
-# Lista de nós do cluster, que contém os IPs e portas dos outros nós no sistema
+# Lista de nós do cluster, contendo IPs e portas
 cluster_nodes = [
-    ("cluster_node_1", 5001),  # Nó 1 (nome do serviço com porta 5001)
-    ("cluster_node_2", 5002),  # Nó 2 (nome do serviço com porta 5002)
-    ("cluster_node_3", 5003),  # Nó 3 (nome do serviço com porta 5003)
-    ("cluster_node_4", 5004),  # Nó 4 (nome do serviço com porta 5004)
-    # Este código será executado no Nó 5 (porta 5005)
+    ("127.0.0.1", 6001),  # Nó 2
+    ("127.0.0.1", 6002),  # Nó 2
+    ("127.0.0.1", 6003),  # Nó 2
+    ("127.0.0.1", 6004),  # Nó 2
 ]
 
-# Lista para rastrear requisições já processadas (evitar duplicações)
+# Lista para rastrear requisições já processadas
 processed_requests = set()
 
-# Função para configurar o socket com Keep-Alive
-def setup_socket():
-    """
-    Configura o socket com a opção de Keep-Alive ativada para garantir que a
-    conexão seja mantida ativa.
-    """
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)  # Habilitar Keep-Alive
-    return s
+# Fila separada de requisições por cliente
+client_request_queues = {}
+client_locks = {}
 
-# Função para enviar pedidos para outros nós do Cluster Sync
 def propagate_to_cluster(request):
     """
     Propaga a requisição atual para os outros nós do Cluster Sync.
-    Essa função se conecta aos outros nós listados e envia o pedido
-    em formato JSON. Cada nó envia uma confirmação (ACK) após receber o pedido.
     """
-    retries = 3  # Número de tentativas
+    oks_received = 0
     for node in cluster_nodes:
-        attempt = 0
-        while attempt < retries:
-            node_socket = setup_socket()
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as node_socket:
             try:
-                node_socket.settimeout(2)  # Timeout de 2 segundos
                 node_socket.connect(node)
-                node_socket.send(json.dumps(request).encode())  # Serializa e envia o pedido
-                print(f"Confirmação de {node}")
-                cluster_nodes_ack.append(node)
-                break  # Conexão bem-sucedida, sai do loop de tentativas
-            except socket.timeout:
-                print(f"Timeout ao tentar conectar com {node}. Tentativa {attempt+1}/{retries}")
+                node_socket.sendall(json.dumps(request).encode())
+                ack = node_socket.recv(1024).decode()
+                print(f"Confirmação de {node}: {ack}")
+                oks_received = oks_received + 1
             except Exception as e:
-                print(f"Falha ao conectar com {node}: {e}. Tentativa {attempt+1}/{retries}")
-            finally:
-                node_socket.close()
-            attempt += 1
-        else:
-            print(f"Falha ao conectar com {node} após {retries} tentativas")
-    print(cluster_nodes_ack)
+                print(f"Falha ao conectar com {node}: {e}")
+    
+    return oks_received
 
-# Função que simula o processamento na seção crítica
 def process_critical_section(request):
     """
-    Simula o tempo de processamento na seção crítica.
-    Aqui, o processamento real seria feito, mas para simulação,
-    usamos um tempo de espera aleatório para simular o acesso ao recurso.
+    Simula o processamento na seção crítica.
     """
-    time.sleep(random.uniform(0.2, 1))  # Simulação do tempo na seção crítica
+    time.sleep(random.uniform(0.2, 1))  # Simulação do tempo de processamento
     print(f"Processando seção crítica para: {request}")
 
-# Função para processar requisições dos clientes
+def wait_for_oks(request_id, oks_received):
+    """
+    Aguarda a recepção de todos os "OKs" dos nós do Cluster Sync.
+    """
+    while True:
+        with lock:
+            if oks_received == len(cluster_nodes):
+                break
+        time.sleep(0.1)
+    
+    print(f"Todos os 'OKs' recebidos para a requisição {request_id}. Entrando na seção crítica...\n\n")
+
+    
+def process_request_queue(client_id, local_node_id):
+    """
+    Processa a fila de requisições de um cliente.
+    """
+    global request_queue
+    while True:
+        with client_locks[client_id]:  # Bloqueia o cliente para processar uma requisição por vez
+            if client_request_queues[client_id]:
+                # Pega a próxima requisição da fila do cliente
+                request_data = client_request_queues[client_id].pop(0)
+                handle_client_request_internal(request_data, local_node_id)
+
+            time.sleep(0.1)  # Pausa para não sobrecarregar o loop
+
 def handle_client_request(client_socket, address, local_node_id):
     """
-    Lida com requisições de clientes. Recebe o pedido, verifica se já foi processado,
-    adiciona à fila e propaga para os outros nós. Se o pedido já foi processado,
-    ele é ignorado. Caso contrário, ele é processado.
+    Processa requisições dos clientes e propaga para o cluster.
     """
-    global request_queue, processed_requests
-    data = client_socket.recv(1024).decode()  # Recebe os dados da requisição
-    
-    # Verifica se é um JSON (requisição propagada) ou um pedido de cliente
+    data = client_socket.recv(1024).decode()
+
+    # Se a requisição é JSON, ela foi propagada de outro nó
     if data.startswith('{'):
-        # Trata o dado como um JSON propagado de outro nó
         request = json.loads(data)
         client_id = request['client_id']
         timestamp = request['timestamp']
         node_id = request['node_id']
-        print(f"Dados propagados recebidos de outro nó: {request}")
     else:
-        # Trata como uma requisição direta de um cliente (formato client_id,timestamp)
         client_id, timestamp = data.split(',')
         timestamp = int(timestamp)
-        node_id = local_node_id  # Define o nó local como origem
-        print(f"Dados recebidos de cliente: {client_id}, {timestamp}")
+        node_id = local_node_id
 
-    # Identificador único para cada requisição (para evitar duplicatas)
+    # Cria uma chave única para a requisição
     request_id = f"{client_id}_{timestamp}"
 
-    # Verifica se já processamos essa requisição
+    # Adiciona o cliente na fila se ele ainda não estiver
+    if client_id not in client_request_queues:
+        client_request_queues[client_id] = []
+        client_locks[client_id] = threading.Lock()
+        # Inicia uma thread para processar a fila desse cliente
+        threading.Thread(target=process_request_queue, args=(client_id, local_node_id)).start()
+
+    # Adiciona a requisição na fila do cliente
+    client_request_queues[client_id].append({
+        "client_socket": client_socket,
+        "client_id": client_id,
+        "timestamp": timestamp,
+        "node_id": node_id,
+        "request_id": request_id
+    })
+
+def handle_client_request_internal(request_data, local_node_id):
+    """
+    Lógica interna para processar a requisição de um cliente após ser tirada da fila.
+    """
+    global request_queue, processed_requests
+
+    client_socket = request_data['client_socket']
+    client_id = request_data['client_id']
+    timestamp = request_data['timestamp']
+    node_id = request_data['node_id']
+    request_id = request_data['request_id']
+
     with lock:
         if request_id in processed_requests:
             print(f"Requisição {request_id} já processada. Ignorando.")
             client_socket.close()
-            return  # Ignora requisições duplicadas
+            return
 
-        # Adiciona à fila de requisições local
-        request_queue.append((client_id, timestamp))  # Adiciona o pedido à fila
-        request_queue.sort(key=lambda x: x[1])  # Ordena por timestamp (ordem de chegada)
-        print(f"\nFila de Requisições: {request_queue}\n")
-        processed_requests.add(request_id)  # Marca a requisição como processada
+        request_queue.append((client_id, timestamp))
+        request_queue.sort(key=lambda x: x[1])
+        processed_requests.add(request_id)
 
-    # Propagar o pedido para os outros nós do Cluster Sync (somente se for requisição direta de cliente)
     if node_id == local_node_id:
         request = {
             "client_id": client_id,
             "timestamp": timestamp,
             "node_id": local_node_id
         }
-        propagate_to_cluster(request)  # Propaga o pedido para os outros nós
+        oks_received = propagate_to_cluster(request)
+    
+    print(f"Oks recebidos: {oks_received}")
+
+    wait_for_oks(request_id, oks_received)
+
+    with lock:
+        if request_queue and request_queue[0][0] == client_id:
+            process_critical_section(f"Cliente {client_id}, timestamp {timestamp}")
+            request_queue.pop(0)
+
+    if node_id == local_node_id:
+        client_socket.sendall(f"COMMITTED for {client_id} at timestamp {timestamp}".encode())
 
     client_socket.close()
 
-# Função para tratar requisições propagadas de outros nós
 def handle_propagated_request(request_data):
     """
-    Lida com requisições propagadas de outros nós do cluster. Recebe os pedidos,
-    verifica se já foram processados, e, se não, adiciona-os à fila e processa-os.
+    Processa requisições propagadas de outros nós do cluster.
     """
     global request_queue, processed_requests
-    request = json.loads(request_data)  # Decodifica os dados recebidos
-
-    # Identificador único da requisição propagada
+    request = json.loads(request_data)
     request_id = f"{request['client_id']}_{request['timestamp']}"
 
-    # Verifica se já processamos essa requisição
     with lock:
         if request_id in processed_requests:
             print(f"Requisição propagada {request_id} já processada. Ignorando.")
-            return  # Ignora requisições duplicadas
+            return
 
-        # Adicionar o pedido recebido à fila local
         request_queue.append((request['client_id'], request['timestamp']))
-        request_queue.sort(key=lambda x: x[1])  # Ordena por timestamp
-        processed_requests.add(request_id)  # Marca a requisição como processada
+        request_queue.sort(key=lambda x: x[1])
+        processed_requests.add(request_id)
 
-# Função para processar a fila de requisições
-def process_queue():
-    """
-    Função que processa a fila de requisições em uma thread separada.
-    """
-    global request_queue
-    while True:
-        with lock:
-            if request_queue:
-                client_id, timestamp = request_queue.pop(0)
-                process_critical_section(f"{client_id},{timestamp}")
-        time.sleep(0.1)  # Evitar consumo excessivo de CPU
-
-# Servidor Cluster Sync (que também recebe pedidos dos outros nós)
 def cluster_sync_server(host, port, local_node_id):
     """
-    Servidor principal que recebe requisições dos clientes. Ao receber um pedido,
-    ele inicia uma thread separada para processá-lo e propagar para os outros nós.
+    Servidor principal que recebe requisições dos clientes.
     """
-    server_socket = setup_socket()
-    server_socket.bind((host, port))  # Liga o servidor ao IP e porta
-    server_socket.listen(10)  # Aumenta o limite para 10 conexões simultâneas
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((host, port))
+    server_socket.listen(5)
 
     print(f"Nó do Cluster Sync rodando em {host}:{port}")
 
     while True:
-        client_socket, addr = server_socket.accept()  # Aceita a conexão do cliente
+        client_socket, addr = server_socket.accept()
         print(f"Conexão recebida de {addr}")
 
-        # Criar uma thread para processar pedidos de clientes
         client_handler = threading.Thread(target=handle_client_request, args=(client_socket, addr, local_node_id))
         client_handler.start()
 
-# Servidor para lidar com requisições de outros nós do Cluster Sync
-def node_listener(host, port):
+def node_sync_server(host, port, local_node_id):
     """
-    Ouvidor que escuta requisições propagadas dos outros nós do cluster.
-    Quando recebe uma requisição, envia um ACK e processa a requisição.
+    Servidor que lida com requisições propagadas de outros nós do Cluster Sync.
     """
-    listener_socket = setup_socket()
-    listener_socket.bind((host, port))  # Liga o ouvidor ao IP e porta
-    listener_socket.listen(10)  # Aumenta o limite para 10 conexões simultâneas
+    node_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    node_socket.bind((host, port))
+    node_socket.listen(5)
 
-    print(f"Ouvidor de requisições de nós rodando em {host}:{port}")
+    print(f"Servidor de sincronização do nó rodando em {host}:{port}")
 
     while True:
-        node_socket, addr = listener_socket.accept()  # Aceita a conexão de outro nó
-        print(f"Conexão recebida de {addr} (outro nó do Cluster)")
+        node_conn, addr = node_socket.accept()
+        print(f"Conexão de sincronização recebida de {addr}")
 
-        # Recebe os dados da requisição propagada
-        request_data = node_socket.recv(1024).decode()
-        print(f"Requisição propagada recebida: {request_data}")
+        request_data = node_conn.recv(1024).decode()
+        handle_propagated_request(request_data)
 
-        # Envia confirmação de recebimento (ACK)
-        node_socket.sendall(b"ACK")
+        node_conn.sendall("OK".encode())
+        node_conn.close()
 
-        # Processa a requisição propagada em uma thread separada
-        threading.Thread(target=handle_propagated_request, args=(request_data,)).start()
-
-        node_socket.close()
 
 if __name__ == "__main__":
-    # Define o ID do nó local e o endereço IP
-    local_node_id = 5  # Este script representa o nó 1
-    host = "0.0.0.0"  # IP do servidor (aceita conexões de todas as interfaces)
-    port = 5005  # Porta do servidor para o nó 1
-
-    # Inicia o servidor principal em uma thread separada
-    threading.Thread(target=cluster_sync_server, args=(host, port, local_node_id)).start()
-
-    # Inicia o ouvidor para receber requisições propagadas dos outros nós em uma thread separada
-    threading.Thread(target=node_listener, args=(host, port + 1000)).start()
-
-    # Inicia a thread que processa a fila de requisições
-    threading.Thread(target=process_queue).start()
-
+    node_id = 5  # Definido como o nó 1
+    threading.Thread(target=cluster_sync_server, args=("127.0.0.1", 5005, node_id)).start()
+    threading.Thread(target=node_sync_server, args=("127.0.0.1", 6005, node_id)).start()
