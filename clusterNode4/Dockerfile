@@ -12,6 +12,7 @@ RUN pip install --upgrade pip
 
 # Expor a porta do servidor (por exemplo, 5001)
 EXPOSE 5004
+EXPOSE 6004
 
 # Comando para rodar o script do Cluster Sync 
 CMD ["python", "clusterNode4.py"]

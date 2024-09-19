@@ -4,9 +4,11 @@ import random  # Biblioteca para gerar números aleatórios
 
 # Lista de nós do Cluster Sync (cada nó tem um nome de serviço e uma porta para comunicação)
 cluster_nodes = [
-    ("127.0.0.1", 5001),  # Nó 1 (nome do serviço com porta 5001)
-    ("127.0.0.1", 5002),  # Nó 1 (nome do serviço com porta 5001)
-    ("127.0.0.1", 5003),  # Nó 1 (nome do serviço com porta 5001)
+    ("cluster_node_1", 5001),  # Nó 1 (nome do serviço com porta 5001)
+    ("cluster_node_2", 5002),  # Nó 1 (nome do serviço com porta 5001)
+    ("cluster_node_3", 5003),  # Nó 1 (nome do serviço com porta 5001)
+    ("cluster_node_4", 5004),  # Nó 1 (nome do serviço com porta 5001)
+    ("cluster_node_5", 5005),  # Nó 1 (nome do serviço com porta 5001)
 ]
 
 # Função que simula o envio de uma requisição de um cliente para um nó do cluster
@@ -47,7 +49,7 @@ if __name__ == "__main__":
     client_id = f"Client{random.randint(1, 1000)}"
     
     # O cliente faz entre 10 e 50 requisições ao Cluster Sync
-    for _ in range(random.randint(5, 8)):
+    for _ in range(random.randint(10, 50)):
         # Gera um timestamp único baseado no tempo atual (em milissegundos)
         timestamp = int(time.time() * 1000)
         print(f"Timestamp gerado foi de {timestamp}\n")

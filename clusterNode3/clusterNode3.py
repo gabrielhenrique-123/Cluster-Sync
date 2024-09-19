@@ -10,10 +10,10 @@ lock = threading.Lock()
 
 # Lista de nós do cluster, contendo IPs e portas
 cluster_nodes = [
-    ("127.0.0.1", 6001),  # Nó 2
-    ("127.0.0.1", 6002),  # Nó 2
-    ("127.0.0.1", 6004),  # Nó 2
-    ("127.0.0.1", 6005),  # Nó 2
+    ("cluster_node_1", 6001),  # Nó 2
+    ("cluster_node_2", 6002),  # Nó 2
+    ("cluster_node_4", 6004),  # Nó 2
+    ("cluster_node_5", 6005),  # Nó 2
 ]
 
 # Lista para rastrear requisições já processadas
@@ -212,5 +212,5 @@ def node_sync_server(host, port, local_node_id):
 
 if __name__ == "__main__":
     node_id = 3  # Definido como o nó 1
-    threading.Thread(target=cluster_sync_server, args=("127.0.0.1", 5003, node_id)).start()
-    threading.Thread(target=node_sync_server, args=("127.0.0.1", 6003, node_id)).start()
+    threading.Thread(target=cluster_sync_server, args=("cluster_node_3", 5003, node_id)).start()
+    threading.Thread(target=node_sync_server, args=("cluster_node_3", 6003, node_id)).start()
